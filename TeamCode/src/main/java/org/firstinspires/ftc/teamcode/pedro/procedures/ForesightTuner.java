@@ -13,6 +13,8 @@ import com.pedropathing.utils.Utils;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.pedro.PoseTelemetry;
+
 import java.util.*;
 import java.util.function.Function;
 
@@ -167,7 +169,9 @@ class ForwardVelocity extends TuningOpMode<Double> {
                 double currentVelocity = Math.abs(localizer.twist().toVector2D().x());
                 velocities.addLast(currentVelocity);
                 velocities.removeFirst();
+                telemetry.addData("forward velocity (in/s)", "%.1f", currentVelocity);
             }
+            PoseTelemetry.show(telemetry, name + ": driving forward " + distance + " in", localizer.pose());
         }
 
         drivetrain.stop();
@@ -225,7 +229,9 @@ class StrafeVelocity extends TuningOpMode<Double> {
                 double currentVelocity = Math.abs(localizer.twist().toVector2D().y());
                 velocities.addLast(currentVelocity);
                 velocities.removeFirst();
+                telemetry.addData("strafe velocity (in/s)", "%.1f", currentVelocity);
             }
+            PoseTelemetry.show(telemetry, name + ": strafing left " + distance + " in", localizer.pose());
         }
 
         drivetrain.stop();
@@ -281,6 +287,8 @@ class ForwardDeceleration extends TuningOpMode<Double> {
         while (!stopping) {
             localizer.update();
             double currentVelocity = localizer.twist().toVector2D().x();
+            telemetry.addData("forward velocity (in/s)", "%.1f", currentVelocity);
+            PoseTelemetry.show(telemetry, name + ": accelerating to " + velocity + " in/s", localizer.pose());
             if (Math.abs(currentVelocity) > velocity) {
                 previousVelocity = currentVelocity;
                 previousTimeNano = System.nanoTime();
@@ -296,6 +304,8 @@ class ForwardDeceleration extends TuningOpMode<Double> {
             localizer.update();
             double currentVelocity = localizer.twist().toVector2D().x();
             long currentTimeNano = System.nanoTime();
+            telemetry.addData("forward velocity (in/s)", "%.1f", currentVelocity);
+            PoseTelemetry.show(telemetry, name + ": coasting to a stop", localizer.pose());
             double dt = (currentTimeNano - previousTimeNano) / 1e9;
 
             if (dt > 0) {
@@ -372,6 +382,8 @@ class StrafeDeceleration extends TuningOpMode<Double> {
         while (!stopping) {
             localizer.update();
             double currentVelocity = localizer.twist().toVector2D().y();
+            telemetry.addData("strafe velocity (in/s)", "%.1f", currentVelocity);
+            PoseTelemetry.show(telemetry, name + ": accelerating to " + velocity + " in/s", localizer.pose());
             if (Math.abs(currentVelocity) > velocity) {
                 previousVelocity = currentVelocity;
                 previousTimeNano = System.nanoTime();
@@ -387,6 +399,8 @@ class StrafeDeceleration extends TuningOpMode<Double> {
             localizer.update();
             double currentVelocity = localizer.twist().toVector2D().y();
             long currentTimeNano = System.nanoTime();
+            telemetry.addData("strafe velocity (in/s)", "%.1f", currentVelocity);
+            PoseTelemetry.show(telemetry, name + ": coasting to a stop", localizer.pose());
             double dt = (currentTimeNano - previousTimeNano) / 1e9;
 
             if (dt > 0) {
@@ -482,6 +496,10 @@ class HeadingBraking extends TuningOpMode<List<Double>> {
             if (iteration < POWERS.length) {
                 power = POWERS[iteration];
             }
+
+            telemetry.addData("Trial", "%d / %d", Math.min(iteration + 1, POWERS.length), POWERS.length);
+            telemetry.addData("Turn power", "%.2f", power * direction);
+            PoseTelemetry.show(telemetry, name + ": " + state, localizer.pose());
 
 //            if (state != State.DONE) {
 //                double voltage = voltageSensor.getVoltage();
@@ -628,6 +646,8 @@ class HeadingTuner extends TuningOpMode<Double> {
                 vMax = Math.max(vMax, turnVel / POWER);
 
                 velocities.add(turnVel);
+                telemetry.addData("turn velocity (rad/s)", "%.2f", turnVel);
+                PoseTelemetry.show(telemetry, name + ": spinning in place", localizer.pose());
 
                 if (timer.seconds() >= RUNTIME) {
                     done = true;
@@ -741,6 +761,10 @@ class ForwardBraking extends TuningOpMode<List<Double>> {
             if (iteration < POWERS.length) {
                 power = POWERS[iteration];
             }
+
+            telemetry.addData("Trial", "%d / %d", Math.min(iteration + 1, POWERS.length), POWERS.length);
+            telemetry.addData("Drive power", "%.2f", power * direction);
+            PoseTelemetry.show(telemetry, name + ": " + state, localizer.pose());
 
             switch (state) {
                 case DRIVE: {
@@ -909,6 +933,10 @@ class StrafeBraking extends TuningOpMode<List<Double>> {
             if (iteration < POWERS.length) {
                 power = POWERS[iteration];
             }
+
+            telemetry.addData("Trial", "%d / %d", Math.min(iteration + 1, POWERS.length), POWERS.length);
+            telemetry.addData("Strafe power", "%.2f", power * direction);
+            PoseTelemetry.show(telemetry, name + ": " + state, localizer.pose());
 
             switch (state) {
                 case DRIVE: {
@@ -1079,6 +1107,8 @@ class ForwardTranslational extends TuningOpMode<List<Double>> {
                 vMax = Math.max(vMax, forwardVelocity / POWER);
 
                 velocities.add(forwardVelocity);
+                telemetry.addData("forward velocity (in/s)", "%.1f", forwardVelocity);
+                PoseTelemetry.show(telemetry, name + ": driving forward", localizer.pose());
 
                 if (timer.seconds() >= RUNTIME) {
                     done = true;
@@ -1197,6 +1227,8 @@ class StrafeTranslational extends TuningOpMode<List<Double>> {
                 vMax = Math.max(vMax, lateralVelocity / POWER);
 
                 velocities.add(lateralVelocity);
+                telemetry.addData("strafe velocity (in/s)", "%.1f", lateralVelocity);
+                PoseTelemetry.show(telemetry, name + ": strafing left", localizer.pose());
 
                 if (timer.seconds() >= RUNTIME) {
                     done = true;

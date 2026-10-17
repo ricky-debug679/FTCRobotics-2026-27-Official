@@ -8,6 +8,7 @@ import com.pedropathing.tuning.autotune.Procedure;
 import com.pedropathing.tuning.autotune.TuningOpMode;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.pedro.PoseTelemetry;
 
 import java.util.*;
 
@@ -101,6 +102,7 @@ class PinpointCustomPodScalar extends TuningOpMode<Double> {
         localizer.update();
         while (!isStopRequested()) {
             localizer.update();
+            PoseTelemetry.show(telemetry, "Push forward exactly " + distance + " in, then Stop", localizer.pose());
         }
         return Math.abs((localizer.pose().x() / distance));
     }
@@ -145,6 +147,7 @@ class PinpointForwardDirection extends TuningOpMode<Boolean> {
 
         while (!isStopRequested()) {
             localizer.update();
+            PoseTelemetry.show(telemetry, "Push the robot FORWARD, then Stop (x should go up)", localizer.pose());
         }
 
         return localizer.pose().x() < 0;
@@ -189,6 +192,7 @@ class PinpointStrafeDirection extends TuningOpMode<Boolean> {
         localizer.update();
         while (!isStopRequested()) {
             localizer.update();
+            PoseTelemetry.show(telemetry, "Push the robot LEFT, then Stop (y should go up)", localizer.pose());
         }
 
         return localizer.pose().y() < 0;
@@ -253,10 +257,7 @@ class PinpointOffsets extends TuningOpMode<List<Double>> {
             previous = localizer.pose();
             localizer.update();
 
-            telemetry.addData("heading", localizer.pose().heading());
-            telemetry.addData("pose", localizer.pose());
-            telemetry.addData("previous", previous);
-            telemetry.update();
+            PoseTelemetry.show(telemetry, "Spin 180 deg counterclockwise in place, then Stop", localizer.pose());
         }
 
         if (localizer.pose().x() != Pose.zero().x() || localizer.pose().y() != Pose.zero().y()) {

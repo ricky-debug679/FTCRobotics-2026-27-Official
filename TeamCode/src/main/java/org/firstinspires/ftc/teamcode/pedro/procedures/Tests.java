@@ -16,6 +16,9 @@ import com.pedropathing.utils.Angle;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.pedro.PathWatchdog;
+import org.firstinspires.ftc.teamcode.pedro.PoseTelemetry;
+
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -23,6 +26,9 @@ import static com.pedropathing.api.Paths.curve;
 import static com.pedropathing.api.Paths.line;
 
 public class Tests extends Procedure {
+    // Each 48 in test path takes a few seconds; one taking longer than this means something is wrong
+    static final double WATCHDOG_MAX_PATH_SECONDS = 8;
+
     enum Test {
         @DisplayName("Hold Test")
         HOLD,
@@ -148,6 +154,7 @@ class TestsHold extends TuningOpMode<Boolean> {
         follower.hold(Pose.zero());
         while (opModeIsActive()) {
             follower.update();
+            PoseTelemetry.show(telemetry, "Holding (0, 0, 0) - push the robot, it should return", follower.pose());
         }
         return true;
     }
@@ -179,17 +186,30 @@ class TestsLine extends TuningOpMode<Boolean> {
         follower.setPose(Pose.zero());
         follower.update();
         follower.follow(path1);
+        PathWatchdog watchdog = new PathWatchdog(Tests.WATCHDOG_MAX_PATH_SECONDS);
+        watchdog.startPath(follower.pose());
 
         while (opModeIsActive()) {
+            if (watchdog.tripped()) {
+                PoseTelemetry.show(telemetry, "STOPPED by safety watchdog: " + watchdog.reason(), follower.pose());
+                continue;
+            }
             follower.update();
+            if (!watchdog.check(follower.pose())) {
+                follower.stop();
+                continue;
+            }
             if (follower.atParametricEnd()) {
                 if (forward) {
                     follower.follow(path2);
                 } else {
                     follower.follow(path1);
                 }
+                watchdog.startPath(follower.pose());
                 forward = !forward;
             }
+            telemetry.addData("Distance to end (in)", "%.2f", follower.distanceToEndpoint());
+            PoseTelemetry.show(telemetry, forward ? "Line: driving forward" : "Line: driving back", follower.pose());
         }
         return true;
     }
@@ -221,17 +241,30 @@ class TestsCurve extends TuningOpMode<Boolean> {
         follower.setPose(Pose.zero());
         follower.update();
         follower.follow(path1);
+        PathWatchdog watchdog = new PathWatchdog(Tests.WATCHDOG_MAX_PATH_SECONDS);
+        watchdog.startPath(follower.pose());
 
         while (opModeIsActive()) {
+            if (watchdog.tripped()) {
+                PoseTelemetry.show(telemetry, "STOPPED by safety watchdog: " + watchdog.reason(), follower.pose());
+                continue;
+            }
             follower.update();
+            if (!watchdog.check(follower.pose())) {
+                follower.stop();
+                continue;
+            }
             if (follower.atParametricEnd()) {
                 if (forward) {
                     follower.follow(path2);
                 } else {
                     follower.follow(path1);
                 }
+                watchdog.startPath(follower.pose());
                 forward = !forward;
             }
+            telemetry.addData("Distance to end (in)", "%.2f", follower.distanceToEndpoint());
+            PoseTelemetry.show(telemetry, forward ? "Curve: driving out" : "Curve: driving back", follower.pose());
         }
         return true;
     }
@@ -263,17 +296,30 @@ class TestsInterpolation extends TuningOpMode<Boolean> {
         follower.setPose(Pose.zero());
         follower.update();
         follower.follow(path1);
+        PathWatchdog watchdog = new PathWatchdog(Tests.WATCHDOG_MAX_PATH_SECONDS);
+        watchdog.startPath(follower.pose());
 
         while (opModeIsActive()) {
+            if (watchdog.tripped()) {
+                PoseTelemetry.show(telemetry, "STOPPED by safety watchdog: " + watchdog.reason(), follower.pose());
+                continue;
+            }
             follower.update();
+            if (!watchdog.check(follower.pose())) {
+                follower.stop();
+                continue;
+            }
             if (follower.atParametricEnd()) {
                 if (forward) {
                     follower.follow(path2);
                 } else {
                     follower.follow(path1);
                 }
+                watchdog.startPath(follower.pose());
                 forward = !forward;
             }
+            telemetry.addData("Distance to end (in)", "%.2f", follower.distanceToEndpoint());
+            PoseTelemetry.show(telemetry, forward ? "Interpolation: driving out" : "Interpolation: driving back", follower.pose());
         }
         return true;
     }
@@ -303,8 +349,7 @@ class TestsLocalization extends TuningOpMode<Boolean> {
         while (opModeIsActive()) {
             drivetrain.drive(new DrivePowers(-gamepad1.left_stick_y, -gamepad1.left_stick_x, -gamepad1.right_stick_x), true);
             localizer.update();
-            telemetry.addData("Pose", localizer.pose());
-            telemetry.update();
+            PoseTelemetry.show(telemetry, "Drive with gamepad 1 and watch x / y / heading", localizer.pose());
         }
         return true;
     }
@@ -432,8 +477,7 @@ class TestsOdometry extends TuningOpMode<Boolean> {
                     break;
             }
 
-            telemetry.addData("Pose", localizer.pose());
-            telemetry.update();
+            PoseTelemetry.show(telemetry, "Odometry test: " + test, localizer.pose());
         }
         return passedX && passedY && passedHeading;
     }
@@ -452,7 +496,15 @@ class TestsDriving extends TuningOpMode<Boolean> {
         Drivetrain drivetrain = drivetrainFunction.apply(hardwareMap);
         waitForStart();
         while (opModeIsActive()) {
-            drivetrain.drive(new DrivePowers(-gamepad1.left_stick_y, -gamepad1.left_stick_x, -gamepad1.right_stick_x), true);
+            double forward = -gamepad1.left_stick_y;
+            double strafe = -gamepad1.left_stick_x;
+            double turn = -gamepad1.right_stick_x;
+            drivetrain.drive(new DrivePowers(forward, strafe, turn), true);
+            telemetry.addData("Status", "Drive with gamepad 1 (no localizer in this test)");
+            telemetry.addData("forward power", "%.2f", forward);
+            telemetry.addData("strafe power", "%.2f", strafe);
+            telemetry.addData("turn power", "%.2f", turn);
+            telemetry.update();
         }
         return true;
     }
@@ -475,8 +527,7 @@ class TestsPose extends TuningOpMode<Boolean> {
         localizer.update();
         while (opModeIsActive()) {
             localizer.update();
-            telemetry.addData("Pose", localizer.pose());
-            telemetry.update();
+            PoseTelemetry.show(telemetry, "Push the robot by hand and watch x / y / heading", localizer.pose());
         }
         return true;
     }
