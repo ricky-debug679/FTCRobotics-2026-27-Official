@@ -13,16 +13,19 @@ import org.firstinspires.ftc.teamcode.starterbot.subsystems.IntakeServos;
 import org.firstinspires.ftc.teamcode.starterbot.subsystems.Launcher;
 import org.firstinspires.ftc.teamcode.starterbot.subsystems.Windmill;
 
-// Match TeleOp for the StarterBot, one driver on gamepad 1. Same controls as the team's original
-// StarterBot TeleOp, but driving uses the tuned Pedro drivetrain settings in Constants:
+// Match TeleOp for the StarterBot, one driver on gamepad 1. Driving uses the tuned Pedro
+// drivetrain settings in Constants. The intake and launcher run the whole match:
 //   Left stick: drive and strafe          Right stick: turn
-//   Right trigger: intake in              Left trigger: intake out
-//   Hold right bumper: shoot (the windmill feeds once the launcher is up to speed)
-//   D-pad up / down: launcher faster / slower
+//   Intake runs in all the time           Hold left trigger: intake out (reverse)
+//   Launcher spins all the time           Hold right bumper: shoot (feeds once the launcher is ready)
+//   D-pad up / down: launcher speed +/- 2%
+//   Hold Y (triangle): feed now, without waiting for the launcher to be ready
 @TeleOp(name = "StarterBotTeleOp", group = "TeleOp")
 public class StarterBotTeleOp extends LinearOpMode {
 
-    // Ignore tiny trigger presses so the intake doesn't creep
+    // The intake pulls in at this power the whole match, unless the left trigger reverses it
+    private static final double INTAKE_RUN_POWER = 1.0;
+    // Ignore tiny trigger presses so a resting finger doesn't reverse the intake
     private static final double TRIGGER_DEADBAND = 0.05;
 
     @Override
@@ -37,7 +40,7 @@ public class StarterBotTeleOp extends LinearOpMode {
         boolean wasReady = false;
         boolean previousUp = false, previousDown = false;
 
-        telemetry.addData("Status", "Ready - press Play");
+        telemetry.addData("Status", "Ready - press Play (intake and launcher start right away)");
         telemetry.update();
         waitForStart();
 
@@ -51,9 +54,9 @@ public class StarterBotTeleOp extends LinearOpMode {
             double turn = -gamepad1.right_stick_x;
             drivetrain.drive(new DrivePowers(forward, strafe, turn), true);
 
-            // Intake: right trigger pulls in, left trigger pushes out; roller and wheels together
-            double intakePower = gamepad1.right_trigger - gamepad1.left_trigger;
-            if (Math.abs(intakePower) < TRIGGER_DEADBAND) intakePower = 0;
+            // Intake: always pulling in; the left trigger reverses it to push pollen out.
+            // Roller and wheels run together
+            double intakePower = gamepad1.left_trigger > TRIGGER_DEADBAND ? -gamepad1.left_trigger : INTAKE_RUN_POWER;
             intakeMotor.setPower(intakePower);
             intakeServos.setPower(intakePower);
 
@@ -63,30 +66,37 @@ public class StarterBotTeleOp extends LinearOpMode {
             previousUp = gamepad1.dpad_up;
             previousDown = gamepad1.dpad_down;
 
-            // Shooting: the launcher spins while the right bumper is held. spin() runs every loop,
-            // so D-pad speed changes take effect while it is already spinning
-            boolean shooting = gamepad1.right_bumper;
-            if (shooting) {
-                launcher.spin();
-            } else {
-                launcher.stop();
-            }
+            // The launcher spins the whole match; called every loop so speed changes apply right away
+            launcher.spin();
 
-            // Rumble once when the launcher reaches speed
+            // Rumble once when the launcher is ready
             boolean ready = launcher.isReady();
             if (ready && !wasReady) gamepad1.rumble(300);
             wasReady = ready;
 
-            // Windmill: feeds only once the launcher is fast enough to score, so no weak shots
-            if (ready) {
+            // Windmill: hold the right bumper to shoot once the launcher is ready, so no weak shots.
+            // Y feeds right away without waiting
+            boolean shoot = gamepad1.right_bumper;
+            boolean manualFeed = gamepad1.y;
+            String feedStatus;
+            if (manualFeed) {
                 windmill.feed();
+                feedStatus = "FEEDING (Y, manual)";
+            } else if (shoot && ready) {
+                windmill.feed();
+                feedStatus = "FEEDING";
             } else {
                 windmill.stop();
+                feedStatus = shoot ? "waiting for launcher..." : "off (hold right bumper to shoot)";
             }
 
-            telemetry.addData("Shooter", !shooting ? "Off (hold right bumper)" : ready ? "READY - feeding" : "Spinning up...");
-            telemetry.addData("Launcher speed", "%.0f / %.0f ticks/s (D-pad up/down)", launcher.getVelocity(), launcher.getTarget());
-            telemetry.addData("Intake", intakePower > 0 ? "IN" : intakePower < 0 ? "OUT" : "off");
+            telemetry.addData("Launcher", "%.0f%% speed - %s (D-pad up/down)",
+                    launcher.getSpeed() * 100, ready ? "READY" : "spinning up...");
+            telemetry.addData("Launcher encoder", Launcher.USE_ENCODER
+                    ? String.format("%.0f ticks/s", launcher.getVelocity())
+                    : String.format("%.0f ticks/s (not used for control)", launcher.getVelocity()));
+            telemetry.addData("Feed", feedStatus);
+            telemetry.addData("Intake", intakePower > 0 ? "IN" : "OUT");
             PoseTelemetry.addPose(telemetry, localizer.pose());
             telemetry.update();
         }
