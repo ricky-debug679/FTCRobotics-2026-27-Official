@@ -16,17 +16,15 @@ import org.firstinspires.ftc.teamcode.starterbot.subsystems.Windmill;
 // Match TeleOp for the StarterBot, one driver on gamepad 1. Driving uses the tuned Pedro
 // drivetrain settings in Constants. The intake and launcher run the whole match:
 //   Left stick: drive and strafe          Right stick: turn
-//   Intake runs in all the time           Hold left trigger: intake out (reverse)
+//   Intake always pulls pollen in (it never reverses)
 //   Launcher spins all the time           Hold right bumper: shoot (feeds once the launcher is ready)
 //   D-pad up / down: launcher speed +/- 2%
 //   Hold Y (triangle): feed now, without waiting for the launcher to be ready
 @TeleOp(name = "StarterBotTeleOp", group = "TeleOp")
 public class StarterBotTeleOp extends LinearOpMode {
 
-    // The intake pulls in at this power the whole match, unless the left trigger reverses it
+    // The intake pulls in at this power the whole match; nothing reverses it
     private static final double INTAKE_RUN_POWER = 1.0;
-    // Ignore tiny trigger presses so a resting finger doesn't reverse the intake
-    private static final double TRIGGER_DEADBAND = 0.05;
 
     @Override
     public void runOpMode() {
@@ -54,11 +52,10 @@ public class StarterBotTeleOp extends LinearOpMode {
             double turn = -gamepad1.right_stick_x;
             drivetrain.drive(new DrivePowers(forward, strafe, turn), true);
 
-            // Intake: always pulling in; the left trigger reverses it to push pollen out.
-            // Roller and wheels run together
-            double intakePower = gamepad1.left_trigger > TRIGGER_DEADBAND ? -gamepad1.left_trigger : INTAKE_RUN_POWER;
-            intakeMotor.setPower(intakePower);
-            intakeServos.setPower(intakePower);
+            // Intake: always pulling pollen in, roller and wheels together. Set every loop so it
+            // keeps running in the same direction no matter what else is happening
+            intakeMotor.setPower(INTAKE_RUN_POWER);
+            intakeServos.setPower(INTAKE_RUN_POWER);
 
             // Launcher speed: one step faster or slower per D-pad press
             if (gamepad1.dpad_up && !previousUp) launcher.faster();
@@ -96,7 +93,7 @@ public class StarterBotTeleOp extends LinearOpMode {
                     ? String.format("%.0f ticks/s", launcher.getVelocity())
                     : String.format("%.0f ticks/s (not used for control)", launcher.getVelocity()));
             telemetry.addData("Feed", feedStatus);
-            telemetry.addData("Intake", intakePower > 0 ? "IN" : "OUT");
+            telemetry.addData("Intake", "IN (always)");
             PoseTelemetry.addPose(telemetry, localizer.pose());
             telemetry.update();
         }
